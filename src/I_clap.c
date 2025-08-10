@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "./P_distortion.c"
+#include "clap/ext/params.h"
 #include <assert.h>
 #include <clap/clap.h>
 
@@ -73,7 +74,6 @@ static const clap_plugin_latency_t I_latency = {
 
 //////////////////
 // clap_porams //
-//////////////////
 
 uint32_t I_ParamCount(const clap_plugin_t *plugin) {
   return P_GetParametersCount();
@@ -90,7 +90,16 @@ bool I_ParamInfo(const clap_plugin_t *plugin, uint32_t param_index,
   param_info->default_value = param.defaultValue;
   param_info->min_value = param.minValue;
   param_info->max_value = param.maxValue;
-  param_info->flags = CLAP_PARAM_IS_AUTOMATABLE;
+  int flags;
+  switch (param.type) {
+  case PARAMETER_TYPE__ENUM:
+    flags = CLAP_PARAM_IS_AUTOMATABLE | CLAP_PARAM_IS_STEPPED;
+  case PARAMETER_TYPE__BOOLEAN:
+    flags = CLAP_PARAM_IS_AUTOMATABLE | CLAP_PARAM_IS_STEPPED;
+  case PARAMETER_TYPE__DOUBLE:
+    flags = CLAP_PARAM_IS_AUTOMATABLE;
+  }
+  param_info->flags = flags;
   param_info->cookie = NULL;
   return true;
 }

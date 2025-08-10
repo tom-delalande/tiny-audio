@@ -1,4 +1,5 @@
 #include <math.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,9 +15,9 @@ const char P_PLUGIN_DESCRIPTION[] = "None";
 enum P_ClipType { HARD = 0, SOFT = 1, FOLD = 2 };
 
 enum P_parameter_type {
-  DOUBLE = 0,
-  BOOLEAN = 1,
-  ENUM = 2,
+  PARAMETER_TYPE__DOUBLE = 0,
+  PARAMETER_TYPE__BOOLEAN = 1,
+  PARAMETER_TYPE__ENUM = 2,
 };
 
 typedef struct {
@@ -27,7 +28,7 @@ typedef struct {
   double maxValue;
   double currentValue;
   enum P_parameter_type type;
-  const char *enumTypeValues[];
+  const char enumTypeValues[16][16];
 } P_parameter;
 
 uint32_t P_GetAudioPortsCount() { return 1; }
@@ -41,7 +42,7 @@ P_parameter parameters[] = {
         -1,
         6,
         0.,
-        DOUBLE,
+        PARAMETER_TYPE__DOUBLE,
     },
     {
         1,
@@ -50,7 +51,7 @@ P_parameter parameters[] = {
         0,
         1,
         0.5,
-        DOUBLE,
+        PARAMETER_TYPE__DOUBLE,
     },
     {
         2,
@@ -59,7 +60,8 @@ P_parameter parameters[] = {
         0.,
         3,
         0.,
-        ENUM,
+        PARAMETER_TYPE__ENUM,
+    {"HARD", "SOFT", "FOLD"},
     },
 };
 const size_t parametersCount = sizeof(parameters) / sizeof(parameters[0]);
@@ -71,7 +73,23 @@ void P_SetParameter(int32_t index, double value) {
 char *P_GetParameterCurrentValueAsText(int32_t index) {
   char *str = malloc(16);
   P_parameter parameter = P_GetParameter(index);
-  sprintf(str, "%f", parameter.currentValue);
+  switch (parameter.type) {
+    case PARAMETER_TYPE__DOUBLE:
+      sprintf(str, "%f", parameter.currentValue);
+      break;
+    case PARAMETER_TYPE__ENUM:
+      sprintf(str, "%s", parameter.enumTypeValues[(int)parameter.currentValue]);
+      break;
+    case PARAMETER_TYPE__BOOLEAN:
+      if (parameter.currentValue > 0) {
+        // TODO: Not sure if this is correct
+        sprintf(str, "%s", "true");
+      } else {
+        sprintf(str, "%s", "false");
+      }
+      break;
+  
+  };
   return str;
 }
 
