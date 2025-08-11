@@ -41,6 +41,7 @@ P_parameter parameters[] = {
         0,
         "Drive",
         0.,
+
         -1,
         6,
         0.,
@@ -63,7 +64,7 @@ P_parameter parameters[] = {
         2,
         0.,
         PARAMETER_TYPE__ENUM,
-    {"HARD", "SOFT", "FOLD"},
+        {"HARD", "SOFT", "FOLD"},
     },
 };
 const size_t parametersCount = sizeof(parameters) / sizeof(parameters[0]);
@@ -76,21 +77,20 @@ char *P_GetParameterCurrentValueAsText(int32_t index, double value) {
   char *str = malloc(16);
   P_parameter parameter = P_GetParameter(index);
   switch (parameter.type) {
-    case PARAMETER_TYPE__DOUBLE:
-      sprintf(str, "%f", value);
-      break;
-    case PARAMETER_TYPE__ENUM:
-      sprintf(str, "%s", parameter.enumTypeValues[(int)value]);
-      break;
-    case PARAMETER_TYPE__BOOLEAN:
-      if (value > 0) {
-        // TODO: Not sure if this is correct
-        sprintf(str, "%s", "true");
-      } else {
-        sprintf(str, "%s", "false");
-      }
-      break;
-  
+  case PARAMETER_TYPE__DOUBLE:
+    sprintf(str, "%f", value);
+    break;
+  case PARAMETER_TYPE__ENUM:
+    sprintf(str, "%s", parameter.enumTypeValues[(int)value]);
+    break;
+  case PARAMETER_TYPE__BOOLEAN:
+    if (value > 0) {
+      // TODO: Not sure if this is correct
+      sprintf(str, "%s", "true");
+    } else {
+      sprintf(str, "%s", "false");
+    }
+    break;
   };
   return str;
 }
@@ -101,17 +101,11 @@ void P_HandleParameterChanged(int32_t index, double value) {
   parameters[index].currentValue = value;
 }
 
-void P_HandleMidiNoteOn(int16_t key) {
-  MIDI_NOTE = key;
-}
+void P_HandleMidiNoteOn(int16_t key) { MIDI_NOTE = key; }
 
-void P_HandleMidiNoteOff(int16_t key) {
-  MIDI_NOTE = 0;
-}
+void P_HandleMidiNoteOff(int16_t key) { MIDI_NOTE = 0; }
 
-double P_GetMidiAudioOutput() {
-  return (double)MIDI_NOTE;
-}
+double P_GetMidiAudioOutput() { return (double)MIDI_NOTE; }
 
 typedef struct {
   float left;

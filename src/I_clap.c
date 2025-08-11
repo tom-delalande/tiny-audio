@@ -3,24 +3,40 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "./P_distortion.c"
+#include "./P_plugins.c"
 #include "clap/events.h"
 #include "clap/ext/params.h"
+#include "clap/plugin.h"
 #include <assert.h>
 #include <clap/clap.h>
 
-static const clap_plugin_descriptor_t I_pluginDescription = {
+// Plugin Definitions
+
+static const clap_plugin_descriptor_t I_pluginDescriptionSynth = {
     .clap_version = CLAP_VERSION_INIT,
-    .id = P_PLUGIN_ID,
-    .name = P_PLUGIN_NAME,
-    .vendor = P_PLUGIN_VENDOR,
-    .url = P_PLUGIN_URL,
+    .id = "io.tinyclub.tiny-synth",
+    .name = "Tiny Synth",
+    .vendor = "tinyclub",
+    .url = "tinyclub.io",
     .manual_url = "",
     .support_url = "",
-    .version = P_PLUGIN_VERSION,
-    .description = P_PLUGIN_DESCRIPTION,
+    .version = "1.0.0",
+    .description = "A tiny synth",
     .features = (const char *[]){CLAP_PLUGIN_FEATURE_INSTRUMENT,
                                  CLAP_PLUGIN_FEATURE_SYNTHESIZER, NULL},
+};
+
+static const clap_plugin_descriptor_t I_pluginDescriptionDrive = {
+    .clap_version = CLAP_VERSION_INIT,
+    .id = "io.tinyclub.tiny-drive",
+    .name = "Tiny Drive",
+    .vendor = "tinyclub",
+    .url = "tinyclub.io",
+    .manual_url = "",
+    .support_url = "",
+    .version = "1.0.0",
+    .description = "A tiny drive",
+    .features = (const char *[]){CLAP_PLUGIN_FEATURE_AUDIO_EFFECT, NULL},
 };
 
 typedef struct {
@@ -30,16 +46,18 @@ typedef struct {
   const clap_host_log_t *hostLog;
   const clap_host_thread_check_t *hostThreadCheck;
   const clap_host_params_t *hostParams;
-} I_plugin;
 
-static void I_EventProcess(I_plugin *plug, const clap_event_header_t *hdr);
+  p_plugin *p;
+} i_plugin;
+
+static void I_EventProcess(p_plugin *plug, const clap_event_header_t *hdr);
 
 /////////////////////////////
 // clap_plugin_audio_ports //
 /////////////////////////////
 
 static uint32_t I_AudioPortsCount(const clap_plugin_t *plugin, bool is_input) {
-  return P_GetAudioPortsCount();
+  return 1;
 }
 
 static bool I_AudioPortsGet(const clap_plugin_t *plugin, uint32_t index,
@@ -86,7 +104,7 @@ static const clap_plugin_note_ports_t I_notePorts = {
 // clap_latency //
 //////////////////
 
-uint32_t I_LatencyGet(const clap_plugin_t *plugin) { return P_GetLatency(); }
+uint32_t I_LatencyGet(const clap_plugin_t *plugin) { return 1; }
 
 static const clap_plugin_latency_t I_latency = {
     .get = I_LatencyGet,
@@ -94,16 +112,22 @@ static const clap_plugin_latency_t I_latency = {
 
 //////////////////
 // clap_porams //
+//////////////////
 
 uint32_t I_ParamCount(const clap_plugin_t *plugin) {
-  return P_GetParametersCount();
+  i_plugin *plug = plugin->plugin_data;
+  p_plugin *p = plug->p;
+  return p->parameterCount;
 }
 bool I_ParamInfo(const clap_plugin_t *plugin, uint32_t param_index,
                  clap_param_info_t *param_info) {
-  if (param_index >= P_GetParametersCount()) {
+  // TODO: I hate these names, I need to come up with a better pattern
+  i_plugin *plug = plugin->plugin_data;
+  p_plugin *p = plug->p;
+  if (param_index >= p->parameterCount) {
     return false;
   }
-  P_parameter param = P_GetParameter(param_index);
+  p_parameter param = p->parameters[param_index];
   param_info->id = param.id;
   strncpy(param_info->name, param.name, CLAP_NAME_SIZE);
   param_info->module[0] = 0;
@@ -127,21 +151,24 @@ bool I_ParamInfo(const clap_plugin_t *plugin, uint32_t param_index,
   param_info->cookie = NULL;
   return true;
 }
-bool I_ParamValue(const clap_plugin_t *plugin, clap_id param_id,
+bool I_ParamValue(const clap_plugin_t *clap_plugin, clap_id param_id,
                   double *value) {
-  if (param_id >= P_GetParametersCount()) {
+  p_plugin *plugin = ((i_plugin *)clap_plugin->plugin_data)->p;
+  if (param_id >= plugin->parameterCount) {
     return false;
   }
-  P_parameter parameter = P_GetParameter(param_id);
+  p_parameter parameter = plugin->parameters[param_id];
   *value = parameter.currentValue;
   return true;
 }
-bool I_ParamValueToText(const clap_plugin_t *plugin, clap_id param_id,
+bool I_ParamValueToText(const clap_plugin_t *clap_plugin, clap_id param_id,
                         double value, char *display, uint32_t size) {
-  if (param_id >= P_GetParametersCount()) {
+  p_plugin *plugin = ((i_plugin *)clap_plugin->plugin_data)->p;
+  if (param_id >= plugin->parameterCount) {
     return false;
   }
-  char *text = P_GetParameterCurrentValueAsText(param_id, value);
+  p_parameter parameter = plugin->parameters[param_id];
+  char *text = P_GetParameterCurrentValueAsText(&parameter, value);
   snprintf(display, size, "%s", text);
   free(text);
   return true;
@@ -153,7 +180,7 @@ bool I_ParamTextToValue(const clap_plugin_t *plugin, clap_id param_id,
 }
 void I_EventFlush(const clap_plugin_t *plugin, const clap_input_events_t *in,
                   const clap_output_events_t *out) {
-  I_plugin *plug = plugin->plugin_data;
+  p_plugin *plug = plugin->plugin_data;
   int s = in->size(in);
   int q;
   for (q = 0; q < s; ++q) {
@@ -172,22 +199,25 @@ static const clap_plugin_params_t I_params = {
     .flush = I_EventFlush,
 };
 
-bool I_StateSave(const clap_plugin_t *plugin, const clap_ostream_t *stream) {
+bool I_StateSave(const clap_plugin_t *clap_plugin,
+                 const clap_ostream_t *stream) {
   // We need to save 2 doubles and an int to save our state plus a version.
   // This is, of course, a terrible implementation of state. You should do
   // better.
+  p_plugin *plugin = ((i_plugin *)clap_plugin->plugin_data)->p;
   assert(sizeof(float) == 4);
   assert(sizeof(int32_t) == 4);
 
-  int buffersize = sizeof(int32_t) + P_GetParametersCount() * sizeof(double);
+  int buffersize = sizeof(int32_t) + plugin->parameterCount * sizeof(double);
   char *buffer = malloc(buffersize);
 
   int32_t version = 1;
   memcpy(buffer, &version, sizeof(int32_t));
-  for (int i = 0; i < P_GetParametersCount(); i++) {
-    P_parameter param = P_GetParameter(i);
-    memcpy(buffer + sizeof(int32_t) + sizeof(double) * i, &(param.currentValue),
-           sizeof(double));
+  for (int i = 0; i < plugin->parameterCount; i++) {
+    p_parameter parameter = plugin->parameters[i];
+    // FIXME: Maybe parameter should be a pointer
+    memcpy(buffer + sizeof(int32_t) + sizeof(double) * i,
+           &(parameter.currentValue), sizeof(double));
   }
 
   int written = 0;
@@ -203,8 +233,10 @@ bool I_StateSave(const clap_plugin_t *plugin, const clap_ostream_t *stream) {
   return true;
 }
 
-bool I_StateLoad(const clap_plugin_t *plugin, const clap_istream_t *stream) {
-  int buffersize = sizeof(int32_t) + P_GetParametersCount() * sizeof(double);
+bool I_StateLoad(const clap_plugin_t *clap_plugin,
+                 const clap_istream_t *stream) {
+  p_plugin *plugin = ((i_plugin *)clap_plugin->plugin_data)->p;
+  int buffersize = sizeof(int32_t) + plugin->parameterCount * sizeof(double);
   char *buffer = malloc(buffersize);
 
   int read = 0;
@@ -219,11 +251,12 @@ bool I_StateLoad(const clap_plugin_t *plugin, const clap_istream_t *stream) {
 
   int32_t version;
   memcpy(&version, buffer, sizeof(int32_t));
-  for (int i = 0; i < P_GetParametersCount(); i++) {
+  for (int i = 0; i < plugin->parameterCount; i++) {
     double *value = malloc(sizeof(double));
     memcpy(value, buffer + sizeof(int32_t) + sizeof(double) * i,
            sizeof(double));
-    P_SetParameter(i, *value);
+    // FIXME: If this doesn't work it needs to be a pointer
+    plugin->parameters[i].currentValue = *value;
     free(value);
   }
 
@@ -237,20 +270,26 @@ static const clap_plugin_state_t I_state = {.save = I_StateSave,
 /////////////////
 
 static bool I_Init(const struct clap_plugin *plugin) {
-  I_plugin *plug = plugin->plugin_data;
+  i_plugin *plug = plugin->plugin_data;
 
   plug->hostLog = plug->host->get_extension(plug->host, CLAP_EXT_LOG);
   plug->hostThreadCheck =
       plug->host->get_extension(plug->host, CLAP_EXT_THREAD_CHECK);
   plug->hostLatency = plug->host->get_extension(plug->host, CLAP_EXT_LATENCY);
 
+  p_plugin *p;
+  const int N = sizeof(p_plugins) / sizeof(p_plugins[0]);
+  for (int i = 0; i < N; ++i)
+    if (!strcmp(plugin->desc->id, p_plugins[i].id))
+      p = &p_plugins[i];
+
+  plug->p = p;
+
   return true;
 }
 
 static void I_Destroy(const struct clap_plugin *plugin) {
-  // FIXME: I might need to store
-  // my data in here to be able to free it properly
-  I_plugin *plug = plugin->plugin_data;
+  i_plugin *plug = plugin->plugin_data;
   free(plug);
 }
 
@@ -267,32 +306,32 @@ static void I_ProcessingStop(const struct clap_plugin *plugin) {}
 
 static void I_Reset(const struct clap_plugin *plugin) {}
 
-static void I_EventProcess(I_plugin *plug, const clap_event_header_t *hdr) {
+static void I_EventProcess(p_plugin *plugin, const clap_event_header_t *hdr) {
   if (hdr->space_id == CLAP_CORE_EVENT_SPACE_ID) {
     switch (hdr->type) {
     case CLAP_EVENT_PARAM_VALUE: {
       const clap_event_param_value_t *ev =
           (const clap_event_param_value_t *)hdr;
-      P_HandleParameterChanged(ev->param_id, ev->value);
+      plugin->handleParameterChanged(plugin, ev->param_id, ev->value);
       break;
     }
     case CLAP_EVENT_NOTE_ON: {
       const clap_event_note_t *ev = (const clap_event_note_t *)hdr;
-      P_HandleMidiNoteOn(ev->key);
+      plugin->handleMidiNoteOn(plugin, ev->key);
       break;
     }
     case CLAP_EVENT_NOTE_OFF: {
       const clap_event_note_t *ev = (const clap_event_note_t *)hdr;
-      P_HandleMidiNoteOff(ev->key);
+      plugin->handleMidiNoteOff(plugin, ev->key);
       break;
     }
     }
   }
 }
 
-static clap_process_status I_Process(const struct clap_plugin *plugin,
+static clap_process_status I_Process(const struct clap_plugin *clap_plugin,
                                      const clap_process_t *process) {
-  I_plugin *plug = plugin->plugin_data;
+  p_plugin *plugin = ((i_plugin *)clap_plugin->plugin_data)->p;
   const uint32_t nframes = process->frames_count;
   const uint32_t nev = process->in_events->size(process->in_events);
   uint32_t ev_index = 0;
@@ -308,7 +347,7 @@ static clap_process_status I_Process(const struct clap_plugin *plugin,
         break;
       }
 
-      I_EventProcess(plug, hdr);
+      I_EventProcess(plugin, hdr);
       ++ev_index;
 
       if (ev_index == nev) {
@@ -318,25 +357,27 @@ static clap_process_status I_Process(const struct clap_plugin *plugin,
       }
     }
 
-    // TODO: These should be stored in the plugin state
-    double frequency = 440.0 * pow(2.0, (P_GetMidiAudioOutput() - 69) / 12.0);
-    bool noteOn = P_GetMidiAudioOutput() != 0;
-    static double phase = 0.0;
-    double sampleRate = 44100.0;
-
     // /* process every samples until the next event */
     for (; i < next_ev_frame; ++i) {
-      // store output samples
-      float sample = 0.0f;
-      if (noteOn) {
-        sample = (float)((2.0 * (phase)-1.0)); // saw wave [-1,1]
-        sample = sinf(2.0f * M_PI * phase);    // sine
-        phase += frequency / sampleRate;
-        if (phase >= 1.0)
-          phase -= 1.0;
-      }
-      process->audio_outputs[0].data32[0][i] = sample;
-      process->audio_outputs[0].data32[1][i] = sample;
+      int16_t leftIn = process->audio_inputs[0].data32[0][i];
+      int16_t rightIn = process->audio_inputs[0].data32[1][i];
+      p_audio output = plugin->processAudio(plugin, leftIn, rightIn);
+      process->audio_outputs[0].data32[0][i] = output.left;
+      process->audio_outputs[0].data32[1][i] = output.right;
+      // double frequency = 440.0 * pow(2.0, (MIDI_NOTE - 69) / 12.0);
+      // bool noteOn = MIDI_NOTE != 0;
+      // static double phase = 0.0;
+      // double sampleRate = 44100.0;
+      // float sample = 0.0f;
+      // if (noteOn) {
+      //   sample = (float)((2.0 * (phase)-1.0)); // saw wave [-1,1]
+      //   sample = sinf(2.0f * M_PI * phase);    // sine
+      //   phase += frequency / sampleRate;
+      //   if (phase >= 1.0)
+      //     phase -= 1.0;
+      // }
+      // process->audio_outputs[0].data32[0][i] = sample;
+      // process->audio_outputs[0].data32[1][i] = sample;
     }
   }
 
@@ -360,10 +401,30 @@ static const void *I_GetExtension(const struct clap_plugin *plugin,
 
 static void I_OnMainThread(const struct clap_plugin *plugin) {}
 
-clap_plugin_t *I_Create(const clap_host_t *host) {
-  I_plugin *p = calloc(1, sizeof(*p));
+clap_plugin_t *I_Create_Synth(const clap_host_t *host) {
+  i_plugin *p = calloc(1, sizeof(*p));
   p->host = host;
-  p->plugin.desc = &I_pluginDescription;
+  p->plugin.desc = &I_pluginDescriptionSynth;
+  p->plugin.plugin_data = p;
+  p->plugin.init = I_Init;
+  p->plugin.destroy = I_Destroy;
+  p->plugin.activate = I_Activate;
+  p->plugin.deactivate = I_Deactivate;
+  p->plugin.start_processing = I_ProcessingStart;
+  p->plugin.stop_processing = I_ProcessingStop;
+  p->plugin.reset = I_Reset;
+  p->plugin.process = I_Process;
+  p->plugin.get_extension = I_GetExtension;
+  p->plugin.on_main_thread = I_OnMainThread;
+
+  // Don't call into the host here
+
+  return &p->plugin;
+}
+clap_plugin_t *I_Create_Drive(const clap_host_t *host) {
+  i_plugin *p = calloc(1, sizeof(*p));
+  p->host = host;
+  p->plugin.desc = &I_pluginDescriptionDrive;
   p->plugin.plugin_data = p;
   p->plugin.init = I_Init;
   p->plugin.destroy = I_Destroy;
@@ -390,8 +451,12 @@ static struct {
   clap_plugin_t *(*create)(const clap_host_t *host);
 } s_plugins[] = {
     {
-        .desc = &I_pluginDescription,
-        .create = I_Create,
+        .desc = &I_pluginDescriptionSynth,
+        .create = I_Create_Synth,
+    },
+    {
+        .desc = &I_pluginDescriptionDrive,
+        .create = I_Create_Drive,
     },
 };
 
@@ -413,9 +478,9 @@ plugin_factory_create_plugin(const struct clap_plugin_factory *factory,
     return NULL;
   }
 
-  const int N = sizeof(s_plugins) / sizeof(s_plugins[0]);
+  const int N = sizeof(p_plugins) / sizeof(p_plugins[0]);
   for (int i = 0; i < N; ++i)
-    if (!strcmp(plugin_id, s_plugins[i].desc->id))
+    if (!strcmp(plugin_id, p_plugins[i].id))
       return s_plugins[i].create(host);
 
   return NULL;
