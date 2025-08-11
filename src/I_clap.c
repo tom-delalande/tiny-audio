@@ -93,11 +93,15 @@ bool I_ParamInfo(const clap_plugin_t *plugin, uint32_t param_index,
   int flags;
   switch (param.type) {
   case PARAMETER_TYPE__ENUM:
-    flags = CLAP_PARAM_IS_AUTOMATABLE | CLAP_PARAM_IS_STEPPED;
+    flags =
+        CLAP_PARAM_IS_AUTOMATABLE | CLAP_PARAM_IS_STEPPED | CLAP_PARAM_IS_ENUM;
+    break;
   case PARAMETER_TYPE__BOOLEAN:
     flags = CLAP_PARAM_IS_AUTOMATABLE | CLAP_PARAM_IS_STEPPED;
+    break;
   case PARAMETER_TYPE__DOUBLE:
     flags = CLAP_PARAM_IS_AUTOMATABLE;
+    break;
   }
   param_info->flags = flags;
   param_info->cookie = NULL;
@@ -117,7 +121,7 @@ bool I_ParamValueToText(const clap_plugin_t *plugin, clap_id param_id,
   if (param_id >= P_GetParametersCount()) {
     return false;
   }
-  char *text = P_GetParameterCurrentValueAsText(param_id);
+  char *text = P_GetParameterCurrentValueAsText(param_id, value);
   snprintf(display, size, "%s", text);
   free(text);
   return true;

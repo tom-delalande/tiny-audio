@@ -58,7 +58,7 @@ P_parameter parameters[] = {
         "Mode",
         0.,
         0.,
-        3,
+        2,
         0.,
         PARAMETER_TYPE__ENUM,
     {"HARD", "SOFT", "FOLD"},
@@ -70,18 +70,18 @@ P_parameter P_GetParameter(int32_t index) { return parameters[index]; }
 void P_SetParameter(int32_t index, double value) {
   parameters[index].currentValue = value;
 }
-char *P_GetParameterCurrentValueAsText(int32_t index) {
+char *P_GetParameterCurrentValueAsText(int32_t index, double value) {
   char *str = malloc(16);
   P_parameter parameter = P_GetParameter(index);
   switch (parameter.type) {
     case PARAMETER_TYPE__DOUBLE:
-      sprintf(str, "%f", parameter.currentValue);
+      sprintf(str, "%f", value);
       break;
     case PARAMETER_TYPE__ENUM:
-      sprintf(str, "%s", parameter.enumTypeValues[(int)parameter.currentValue]);
+      sprintf(str, "%s", parameter.enumTypeValues[(int)value]);
       break;
     case PARAMETER_TYPE__BOOLEAN:
-      if (parameter.currentValue > 0) {
+      if (value > 0) {
         // TODO: Not sure if this is correct
         sprintf(str, "%s", "true");
       } else {
