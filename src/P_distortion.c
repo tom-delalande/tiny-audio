@@ -20,6 +20,8 @@ enum P_parameter_type {
   PARAMETER_TYPE__ENUM = 2,
 };
 
+static int16_t MIDI_NOTE = 0;
+
 typedef struct {
   int id;
   char *name;
@@ -97,6 +99,18 @@ uint32_t P_GetParametersCount() { return parametersCount; }
 
 void P_HandleParameterChanged(int32_t index, double value) {
   parameters[index].currentValue = value;
+}
+
+void P_HandleMidiNoteOn(int16_t key) {
+  MIDI_NOTE = key;
+}
+
+void P_HandleMidiNoteOff(int16_t key) {
+  MIDI_NOTE = 0;
+}
+
+double P_GetMidiAudioOutput() {
+  return (double)MIDI_NOTE;
 }
 
 typedef struct {

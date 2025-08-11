@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "./P_distortion.c"
+#include "clap/events.h"
 #include "clap/ext/params.h"
 #include <assert.h>
 #include <clap/clap.h>
@@ -18,8 +19,8 @@ static const clap_plugin_descriptor_t I_pluginDescription = {
     .support_url = "",
     .version = P_PLUGIN_VERSION,
     .description = P_PLUGIN_DESCRIPTION,
-    .features = (const char *[]){CLAP_PLUGIN_FEATURE_AUDIO_EFFECT,
-                                 CLAP_PLUGIN_FEATURE_STEREO, NULL},
+    .features = (const char *[]){CLAP_PLUGIN_FEATURE_INSTRUMENT,
+                                 CLAP_PLUGIN_FEATURE_SYNTHESIZER, NULL},
 };
 
 typedef struct {
@@ -60,6 +61,25 @@ static bool I_AudioPortsGet(const clap_plugin_t *plugin, uint32_t index,
 static const clap_plugin_audio_ports_t I_audioPorts = {
     .count = I_AudioPortsCount,
     .get = I_AudioPortsGet,
+};
+
+static uint32_t I_NotePortsCount(const clap_plugin_t *plugin, bool is_input) {
+  return 1;
+}
+
+static bool I_NotePortsGet(const clap_plugin_t *plugin, uint32_t index,
+                           bool is_input, clap_note_port_info_t *info) {
+  if (!is_input || index > 0)
+    return false;
+  info->id = 0;
+  snprintf(info->name, sizeof(info->name), "MIDI In");
+  info->supported_dialects = CLAP_NOTE_DIALECT_CLAP;
+  info->preferred_dialect = CLAP_NOTE_DIALECT_CLAP;
+  return true;
+}
+static const clap_plugin_note_ports_t I_notePorts = {
+    .count = I_NotePortsCount,
+    .get = I_NotePortsGet,
 };
 
 //////////////////
@@ -256,6 +276,16 @@ static void I_EventProcess(I_plugin *plug, const clap_event_header_t *hdr) {
       P_HandleParameterChanged(ev->param_id, ev->value);
       break;
     }
+    case CLAP_EVENT_NOTE_ON: {
+      const clap_event_note_t *ev = (const clap_event_note_t *)hdr;
+      P_HandleMidiNoteOn(ev->key);
+      break;
+    }
+    case CLAP_EVENT_NOTE_OFF: {
+      const clap_event_note_t *ev = (const clap_event_note_t *)hdr;
+      P_HandleMidiNoteOff(ev->key);
+      break;
+    }
     }
   }
 }
@@ -288,17 +318,25 @@ static clap_process_status I_Process(const struct clap_plugin *plugin,
       }
     }
 
-    /* process every samples until the next event */
+    // TODO: These should be stored in the plugin state
+    double frequency = 440.0 * pow(2.0, (P_GetMidiAudioOutput() - 69) / 12.0);
+    bool noteOn = P_GetMidiAudioOutput() != 0;
+    static double phase = 0.0;
+    double sampleRate = 44100.0;
+
+    // /* process every samples until the next event */
     for (; i < next_ev_frame; ++i) {
-      // fetch input samples
-      const float in_l = process->audio_inputs[0].data32[0][i];
-      const float in_r = process->audio_inputs[0].data32[1][i];
-
-      P_processAudioResponse out = P_ProcessAudio(in_l, in_r);
-
       // store output samples
-      process->audio_outputs[0].data32[0][i] = out.left;
-      process->audio_outputs[0].data32[1][i] = out.right;
+      float sample = 0.0f;
+      if (noteOn) {
+        sample = (float)((2.0 * (phase)-1.0)); // saw wave [-1,1]
+        sample = sinf(2.0f * M_PI * phase);    // sine
+        phase += frequency / sampleRate;
+        if (phase >= 1.0)
+          phase -= 1.0;
+      }
+      process->audio_outputs[0].data32[0][i] = sample;
+      process->audio_outputs[0].data32[1][i] = sample;
     }
   }
 
@@ -311,6 +349,8 @@ static const void *I_GetExtension(const struct clap_plugin *plugin,
     return &I_latency;
   if (!strcmp(id, CLAP_EXT_AUDIO_PORTS))
     return &I_audioPorts;
+  if (!strcmp(id, CLAP_EXT_NOTE_PORTS))
+    return &I_notePorts;
   if (!strcmp(id, CLAP_EXT_PARAMS))
     return &I_params;
   if (!strcmp(id, CLAP_EXT_STATE))
