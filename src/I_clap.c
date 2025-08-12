@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "./P_plugins.c"
+#include "./p_plugins.c"
 #include "clap/events.h"
 #include "clap/ext/params.h"
 #include "clap/plugin.h"
@@ -12,7 +12,7 @@
 
 // Plugin Definitions
 
-static const clap_plugin_descriptor_t I_pluginDescriptionSynth = {
+static const clap_plugin_descriptor_t i_pluginDescriptionSynth = {
     .clap_version = CLAP_VERSION_INIT,
     .id = "io.tinyclub.tiny-synth",
     .name = "Tiny Synth",
@@ -26,7 +26,7 @@ static const clap_plugin_descriptor_t I_pluginDescriptionSynth = {
                                  CLAP_PLUGIN_FEATURE_SYNTHESIZER, NULL},
 };
 
-static const clap_plugin_descriptor_t I_pluginDescriptionDrive = {
+static const clap_plugin_descriptor_t i_pluginDescriptionDrive = {
     .clap_version = CLAP_VERSION_INIT,
     .id = "io.tinyclub.tiny-drive",
     .name = "Tiny Drive",
@@ -76,7 +76,7 @@ static bool I_AudioPortsGet(const clap_plugin_t *plugin, uint32_t index,
   return true;
 }
 
-static const clap_plugin_audio_ports_t I_audioPorts = {
+static const clap_plugin_audio_ports_t i_audioPorts = {
     .count = I_AudioPortsCount,
     .get = I_AudioPortsGet,
 };
@@ -95,7 +95,7 @@ static bool I_NotePortsGet(const clap_plugin_t *plugin, uint32_t index,
   info->preferred_dialect = CLAP_NOTE_DIALECT_CLAP;
   return true;
 }
-static const clap_plugin_note_ports_t I_notePorts = {
+static const clap_plugin_note_ports_t i_notePorts = {
     .count = I_NotePortsCount,
     .get = I_NotePortsGet,
 };
@@ -106,7 +106,7 @@ static const clap_plugin_note_ports_t I_notePorts = {
 
 uint32_t I_LatencyGet(const clap_plugin_t *plugin) { return 1; }
 
-static const clap_plugin_latency_t I_latency = {
+static const clap_plugin_latency_t i_latency = {
     .get = I_LatencyGet,
 };
 
@@ -114,20 +114,17 @@ static const clap_plugin_latency_t I_latency = {
 // clap_porams //
 //////////////////
 
-uint32_t I_ParamCount(const clap_plugin_t *plugin) {
-  i_plugin *plug = plugin->plugin_data;
-  p_plugin *p = plug->p;
-  return p->parameterCount;
+uint32_t I_ParamCount(const clap_plugin_t *clap_plugin) {
+  p_plugin *plugin = ((i_plugin *)clap_plugin->plugin_data)->p;
+  return plugin->parameterCount;
 }
-bool I_ParamInfo(const clap_plugin_t *plugin, uint32_t param_index,
+bool I_ParamInfo(const clap_plugin_t *clap_plugin, uint32_t param_index,
                  clap_param_info_t *param_info) {
-  // TODO: I hate these names, I need to come up with a better pattern
-  i_plugin *plug = plugin->plugin_data;
-  p_plugin *p = plug->p;
-  if (param_index >= p->parameterCount) {
+  p_plugin *plugin = ((i_plugin *)clap_plugin->plugin_data)->p;
+  if (param_index >= plugin->parameterCount) {
     return false;
   }
-  p_parameter param = p->parameters[param_index];
+  p_parameter param = plugin->parameters[param_index];
   param_info->id = param.id;
   strncpy(param_info->name, param.name, CLAP_NAME_SIZE);
   param_info->module[0] = 0;
@@ -201,9 +198,6 @@ static const clap_plugin_params_t I_params = {
 
 bool I_StateSave(const clap_plugin_t *clap_plugin,
                  const clap_ostream_t *stream) {
-  // We need to save 2 doubles and an int to save our state plus a version.
-  // This is, of course, a terrible implementation of state. You should do
-  // better.
   p_plugin *plugin = ((i_plugin *)clap_plugin->plugin_data)->p;
   assert(sizeof(float) == 4);
   assert(sizeof(int32_t) == 4);
@@ -215,7 +209,6 @@ bool I_StateSave(const clap_plugin_t *clap_plugin,
   memcpy(buffer, &version, sizeof(int32_t));
   for (int i = 0; i < plugin->parameterCount; i++) {
     p_parameter parameter = plugin->parameters[i];
-    // FIXME: Maybe parameter should be a pointer
     memcpy(buffer + sizeof(int32_t) + sizeof(double) * i,
            &(parameter.currentValue), sizeof(double));
   }
@@ -364,20 +357,6 @@ static clap_process_status I_Process(const struct clap_plugin *clap_plugin,
       p_audio output = plugin->processAudio(plugin, leftIn, rightIn);
       process->audio_outputs[0].data32[0][i] = output.left;
       process->audio_outputs[0].data32[1][i] = output.right;
-      // double frequency = 440.0 * pow(2.0, (MIDI_NOTE - 69) / 12.0);
-      // bool noteOn = MIDI_NOTE != 0;
-      // static double phase = 0.0;
-      // double sampleRate = 44100.0;
-      // float sample = 0.0f;
-      // if (noteOn) {
-      //   sample = (float)((2.0 * (phase)-1.0)); // saw wave [-1,1]
-      //   sample = sinf(2.0f * M_PI * phase);    // sine
-      //   phase += frequency / sampleRate;
-      //   if (phase >= 1.0)
-      //     phase -= 1.0;
-      // }
-      // process->audio_outputs[0].data32[0][i] = sample;
-      // process->audio_outputs[0].data32[1][i] = sample;
     }
   }
 
@@ -387,11 +366,11 @@ static clap_process_status I_Process(const struct clap_plugin *clap_plugin,
 static const void *I_GetExtension(const struct clap_plugin *plugin,
                                   const char *id) {
   if (!strcmp(id, CLAP_EXT_LATENCY))
-    return &I_latency;
+    return &i_latency;
   if (!strcmp(id, CLAP_EXT_AUDIO_PORTS))
-    return &I_audioPorts;
+    return &i_audioPorts;
   if (!strcmp(id, CLAP_EXT_NOTE_PORTS))
-    return &I_notePorts;
+    return &i_notePorts;
   if (!strcmp(id, CLAP_EXT_PARAMS))
     return &I_params;
   if (!strcmp(id, CLAP_EXT_STATE))
@@ -404,7 +383,7 @@ static void I_OnMainThread(const struct clap_plugin *plugin) {}
 clap_plugin_t *I_Create_Synth(const clap_host_t *host) {
   i_plugin *p = calloc(1, sizeof(*p));
   p->host = host;
-  p->plugin.desc = &I_pluginDescriptionSynth;
+  p->plugin.desc = &i_pluginDescriptionSynth;
   p->plugin.plugin_data = p;
   p->plugin.init = I_Init;
   p->plugin.destroy = I_Destroy;
@@ -424,7 +403,7 @@ clap_plugin_t *I_Create_Synth(const clap_host_t *host) {
 clap_plugin_t *I_Create_Drive(const clap_host_t *host) {
   i_plugin *p = calloc(1, sizeof(*p));
   p->host = host;
-  p->plugin.desc = &I_pluginDescriptionDrive;
+  p->plugin.desc = &i_pluginDescriptionDrive;
   p->plugin.plugin_data = p;
   p->plugin.init = I_Init;
   p->plugin.destroy = I_Destroy;
@@ -451,11 +430,11 @@ static struct {
   clap_plugin_t *(*create)(const clap_host_t *host);
 } s_plugins[] = {
     {
-        .desc = &I_pluginDescriptionSynth,
+        .desc = &i_pluginDescriptionSynth,
         .create = I_Create_Synth,
     },
     {
-        .desc = &I_pluginDescriptionDrive,
+        .desc = &i_pluginDescriptionDrive,
         .create = I_Create_Drive,
     },
 };
