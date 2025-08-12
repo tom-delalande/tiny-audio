@@ -30,7 +30,7 @@ typedef struct {
 typedef struct p_plugin p_plugin;
 struct p_plugin {
   char *id;
-  p_audio (*processAudio)(p_plugin *plugin, int16_t leftIn, int16_t rightIn);
+  p_audio (*processAudio)(p_plugin *plugin, float leftIn, float rightIn);
   void (*handleParameterChanged)(p_plugin *plugin, int32_t index, double value);
   void (*handleMidiNoteOn)(p_plugin *plugin, int16_t key);
   void (*handleMidiNoteOff)(p_plugin *plugin, int16_t key);
@@ -40,7 +40,7 @@ struct p_plugin {
 
 static int16_t MIDI_NOTE = 0;
 
-p_audio synth_processAudio(p_plugin *plugin, int16_t leftIn, int16_t rightIn) {
+p_audio synth_processAudio(p_plugin *plugin, float leftIn, float rightIn) {
   double frequency = 440.0 * pow(2.0, (MIDI_NOTE - 69) / 12.0);
   bool noteOn = MIDI_NOTE != 0;
   static double phase = 0.0;
@@ -64,7 +64,7 @@ void drive_handleParameterChanged(p_plugin *plugin, int32_t index,
                                   double value) {
   plugin->parameters[index].currentValue = value;
 }
-p_audio drive_processAudio(p_plugin *plugin, int16_t leftIn, int16_t rightIn) {
+p_audio drive_processAudio(p_plugin *plugin, float leftIn, float rightIn) {
   double drive = plugin->parameters[0].currentValue;
   int mode = (int)plugin->parameters[1].currentValue;
   double mix = plugin->parameters[2].currentValue;

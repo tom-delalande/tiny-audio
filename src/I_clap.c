@@ -36,7 +36,8 @@ static const clap_plugin_descriptor_t i_pluginDescriptionDrive = {
     .support_url = "",
     .version = "1.0.0",
     .description = "A tiny drive",
-    .features = (const char *[]){CLAP_PLUGIN_FEATURE_AUDIO_EFFECT, NULL},
+    .features = (const char *[]){CLAP_PLUGIN_FEATURE_AUDIO_EFFECT,
+                                 CLAP_PLUGIN_FEATURE_STEREO, NULL},
 };
 
 typedef struct {
@@ -352,8 +353,8 @@ static clap_process_status I_Process(const struct clap_plugin *clap_plugin,
 
     // /* process every samples until the next event */
     for (; i < next_ev_frame; ++i) {
-      int16_t leftIn = process->audio_inputs[0].data32[0][i];
-      int16_t rightIn = process->audio_inputs[0].data32[1][i];
+      const float leftIn = process->audio_inputs[0].data32[0][i];
+      const float rightIn = process->audio_inputs[0].data32[1][i];
       p_audio output = plugin->processAudio(plugin, leftIn, rightIn);
       process->audio_outputs[0].data32[0][i] = output.left;
       process->audio_outputs[0].data32[1][i] = output.right;
