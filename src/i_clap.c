@@ -392,7 +392,8 @@ static const void *I_GetExtension(const struct clap_plugin *plugin,
 }
 
 static void I_OnMainThread(const struct clap_plugin *plugin) {
-  t_log("I_OnMainThread");
+  // FIXME: This probably shouldn't use gui_show (and have a dedicated function
+  // instead)
   gui_show(plugin);
   i_plugin *plugin_data = plugin->plugin_data;
   plugin_data->host->request_callback(plugin_data->host);

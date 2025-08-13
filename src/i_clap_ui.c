@@ -47,7 +47,7 @@ static bool gui_create(const clap_plugin_t *plugin, const char *api,
     return false;
   }
 
-  sdl_window = SDL_CreateWindow("My CLAP SDL3 UI", 400, 300, 0);
+  sdl_window = SDL_CreateWindow("Tiny Audio Plugin", 200, 200, 0);
   if (!sdl_window)
     return false;
 

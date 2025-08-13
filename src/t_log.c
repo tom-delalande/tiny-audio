@@ -9,6 +9,7 @@ void t_log(char *text) {
     char path[1024];
     sprintf(path, "%s/logs/tiny-audio.txt", getenv("HOME"));
     logFile = fopen(path, "a");
+    fprintf(logFile, "---\n");
   }
   fprintf(logFile, "%s\n", text);
 }

@@ -1,7 +1,11 @@
 # TODO
 
 Backlog
-- Add a UI
+- Add an interesting UI
+- I would like to embed the UI in the plugin pane but I don't know how easy that is
+- Make a compressor plugin
+- Mess around with some equations, see what sounds you can make
+- Add dynamic loading
 
 Plugins (Backlog):
   Synth
