@@ -3,12 +3,33 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "./i_clap_ui.c"
 #include "./p_plugins.c"
+#include "./t_log.c"
 #include "clap/events.h"
+#include "clap/ext/gui.h"
 #include "clap/ext/params.h"
 #include "clap/plugin.h"
+#include <SDL3/SDL.h>
 #include <assert.h>
 #include <clap/clap.h>
+#include <pthread.h>
+
+typedef struct {
+  clap_plugin_t plugin;
+  const clap_host_t *host;
+  const clap_host_latency_t *hostLatency;
+  const clap_host_log_t *hostLog;
+  const clap_host_thread_check_t *hostThreadCheck;
+  const clap_host_params_t *hostParams;
+
+  p_plugin *p;
+
+  SDL_Window *window;
+  SDL_Renderer *renderer;
+  bool running;
+  pthread_t thread;
+} i_plugin;
 
 // Plugin Definitions
 
@@ -39,17 +60,6 @@ static const clap_plugin_descriptor_t i_pluginDescriptionDrive = {
     .features = (const char *[]){CLAP_PLUGIN_FEATURE_AUDIO_EFFECT,
                                  CLAP_PLUGIN_FEATURE_STEREO, NULL},
 };
-
-typedef struct {
-  clap_plugin_t plugin;
-  const clap_host_t *host;
-  const clap_host_latency_t *hostLatency;
-  const clap_host_log_t *hostLog;
-  const clap_host_thread_check_t *hostThreadCheck;
-  const clap_host_params_t *hostParams;
-
-  p_plugin *p;
-} i_plugin;
 
 static void I_EventProcess(p_plugin *plug, const clap_event_header_t *hdr);
 
@@ -376,13 +386,20 @@ static const void *I_GetExtension(const struct clap_plugin *plugin,
     return &I_params;
   if (!strcmp(id, CLAP_EXT_STATE))
     return &I_state;
+  if (!strcmp(id, CLAP_EXT_GUI))
+    return &gui_ext;
   return NULL;
 }
 
-static void I_OnMainThread(const struct clap_plugin *plugin) {}
+static void I_OnMainThread(const struct clap_plugin *plugin) {
+  gui_show(plugin);
+  i_plugin *plugin_data = plugin->plugin_data;
+  plugin_data->host->request_callback(plugin_data->host);
+}
 
 clap_plugin_t *I_Create_Synth(const clap_host_t *host) {
   i_plugin *p = calloc(1, sizeof(*p));
+  host->request_callback(host);
   p->host = host;
   p->plugin.desc = &i_pluginDescriptionSynth;
   p->plugin.plugin_data = p;
@@ -403,6 +420,7 @@ clap_plugin_t *I_Create_Synth(const clap_host_t *host) {
 }
 clap_plugin_t *I_Create_Drive(const clap_host_t *host) {
   i_plugin *p = calloc(1, sizeof(*p));
+  host->request_callback(host);
   p->host = host;
   p->plugin.desc = &i_pluginDescriptionDrive;
   p->plugin.plugin_data = p;

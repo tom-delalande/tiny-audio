@@ -1,3 +1,6 @@
 [submodule "libs/clap"]
 	path = libs/clap
 	url = https://github.com/free-audio/clap.git
+[submodule "libs/sdl3"]
+	path = libs/sdl3
+	url = https://github.com/libsdl-org/SDL
