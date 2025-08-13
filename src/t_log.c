@@ -1,11 +1,14 @@
 #include <stdio.h>
+#include <stdlib.h>
 
 FILE *logFile;
 
 void t_log(char *text) {
+
   if (logFile == NULL) {
-    // FIXME: This does not work
-    logFile = fopen("./logs.txt", "a");
+    char path[1024];
+    sprintf(path, "%s/logs/tiny-audio.txt", getenv("HOME"));
+    logFile = fopen(path, "a");
   }
-  fprintf(logFile, "%s", text);
+  fprintf(logFile, "%s\n", text);
 }
