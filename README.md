@@ -22,8 +22,9 @@ Tiny Audio is a collection of [CLAP](https://cleveraudio.org/) audio plugins for
 
 ## Development
 
-1. Build using `./scripts/build.sh`
-2. Import in your favourite Digital Audio Workstation (must support CLAP)
+1. Install dependencies with `./scripts/install.sh`
+2. Build using `./scripts/build.sh`
+3. Import in your favourite Digital Audio Workstation (must support CLAP)
 
 ## Tech stack
 - C99
