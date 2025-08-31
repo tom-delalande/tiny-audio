@@ -1,5 +1,5 @@
 # 🎵 Tiny Audio
-*A collection of tiny audio plugins for music creation *
+*A collection of tiny audio plugins for music creation*
 
 ![Plugins](./docs/image-plugins.png)
 
