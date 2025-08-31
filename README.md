@@ -4,7 +4,7 @@
 ![Plugins](./docs/image-plugins.png)
 
 ## Description
-Tiny Audio is a collection of [CLAP](https://cleveraudio.org/) audio plugins for music production written in C. These
+Tiny Audio is a collection of [CLAP](https://cleveraudio.org/) audio plugins for music production written in C. Including a sine wave synthesizer and a gain effect.
 
 ## Features
 - ∿ Sine wave synthesizer
