@@ -1,6 +1,8 @@
 # 🎵 Tiny Audio
 *A collection of tiny audio plugins for music creation *
 
+![Plugins](./docs/image-plugins.png)
+
 ## Description
 Tiny Audio is a collection of [CLAP](https://cleveraudio.org/) audio plugins for music production written in C. These
 

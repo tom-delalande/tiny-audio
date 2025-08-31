@@ -1,6 +1,7 @@
 # TODO
 
 Backlog
+- [BUG] Drive plugin is currently temperamental
 - Add an interesting UI
 - I would like to embed the UI in the plugin pane but I don't know how easy that is
 - Make a compressor plugin
