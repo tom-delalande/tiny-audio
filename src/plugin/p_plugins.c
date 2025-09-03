@@ -3,7 +3,6 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/_types/_u_int32_t.h>
 
 typedef struct {
   float left;

@@ -4,3 +4,6 @@
 [submodule "libs/sdl3"]
 	path = libs/sdl3
 	url = https://github.com/libsdl-org/SDL
+[submodule "libs/lv2"]
+	path = libs/lv2
+	url = https://github.com/lv2/lv2.git

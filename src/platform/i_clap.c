@@ -3,14 +3,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "./i_clap_ui.c"
-#include "./p_plugins.c"
-#include "./t_log.c"
+#include "../plugin/p_plugins.c"
+#include "../util/t_log.c"
 #include "clap/events.h"
-#include "clap/ext/gui.h"
 #include "clap/ext/params.h"
 #include "clap/plugin.h"
-#include <SDL3/SDL.h>
 #include <assert.h>
 #include <clap/clap.h>
 #include <pthread.h>
@@ -25,8 +22,6 @@ typedef struct {
 
   p_plugin *p;
 
-  SDL_Window *window;
-  SDL_Renderer *renderer;
   bool running;
   pthread_t thread;
 } i_plugin;
@@ -386,15 +381,12 @@ static const void *I_GetExtension(const struct clap_plugin *plugin,
     return &I_params;
   if (!strcmp(id, CLAP_EXT_STATE))
     return &I_state;
-  if (!strcmp(id, CLAP_EXT_GUI))
-    return &gui_ext;
   return NULL;
 }
 
 static void I_OnMainThread(const struct clap_plugin *plugin) {
   // FIXME: This probably shouldn't use gui_show (and have a dedicated function
   // instead)
-  gui_show(plugin);
   i_plugin *plugin_data = plugin->plugin_data;
   plugin_data->host->request_callback(plugin_data->host);
 }
