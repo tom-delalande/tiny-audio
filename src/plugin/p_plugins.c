@@ -18,10 +18,9 @@ enum p_parameter_type {
 typedef struct {
   int id;
   char *name;
-  double defaultValue;
-  double minValue;
-  double maxValue;
-  double currentValue;
+  float defaultValue;
+  float minValue;
+  float maxValue;
   enum p_parameter_type type;
   const char enumTypeValues[16][16];
 } p_parameter;
@@ -30,10 +29,10 @@ typedef struct p_plugin p_plugin;
 struct p_plugin {
   char *id;
   p_audio (*processAudio)(p_plugin *plugin, float leftIn, float rightIn);
-  void (*handleParameterChanged)(p_plugin *plugin, int32_t index, double value);
   void (*handleMidiNoteOn)(p_plugin *plugin, int16_t key);
   void (*handleMidiNoteOff)(p_plugin *plugin, int16_t key);
   p_parameter *parameters;
+  float **parameterValues;
   uint32_t parameterCount;
 };
 
@@ -59,14 +58,10 @@ p_audio synth_processAudio(p_plugin *plugin, float leftIn, float rightIn) {
 void synth_handleMidiNoteOn(p_plugin *plugin, int16_t key) { MIDI_NOTE = key; }
 void synth_handleMidiNoteOff(p_plugin *plugin, int16_t key) { MIDI_NOTE = 0; }
 
-void drive_handleParameterChanged(p_plugin *plugin, int32_t index,
-                                  double value) {
-  plugin->parameters[index].currentValue = value;
-}
 p_audio drive_processAudio(p_plugin *plugin, float leftIn, float rightIn) {
-  double drive = plugin->parameters[0].currentValue;
-  int mode = (int)plugin->parameters[1].currentValue;
-  double mix = plugin->parameters[2].currentValue;
+  float drive = *(plugin->parameterValues[0]);
+  int mode = (int)*(plugin->parameterValues[1]);
+  float mix = *(plugin->parameterValues[2]);
 
   float out_l, out_r;
   out_l = 0;
@@ -109,7 +104,6 @@ p_parameter drive_parameters[] = {
         0.,
         -1,
         6,
-        0.,
         PARAMETER_TYPE__DOUBLE,
     },
     {
@@ -118,7 +112,6 @@ p_parameter drive_parameters[] = {
         0.5,
         0,
         1,
-        0.5,
         PARAMETER_TYPE__DOUBLE,
     },
     {
@@ -127,28 +120,25 @@ p_parameter drive_parameters[] = {
         0.,
         0.,
         2,
-        0.,
         PARAMETER_TYPE__ENUM,
         {"HARD", "SOFT", "FOLD"},
     },
 };
 
-p_plugin p_plugins[2] = {
-    {
-        .id = "io.tinyclub.tiny-synth",
-        .processAudio = synth_processAudio,
-        .handleMidiNoteOn = synth_handleMidiNoteOn,
-        .handleMidiNoteOff = synth_handleMidiNoteOff,
-        .parameters = {},
-        .parameterCount = 0,
-    },
-    {
-        .id = "io.tinyclub.tiny-drive",
-        .processAudio = drive_processAudio,
-        .handleParameterChanged = drive_handleParameterChanged,
-        .parameters = drive_parameters,
-        .parameterCount = 3,
-    }};
+p_plugin p_plugins[2] = {{
+                             .id = "io.tinyclub.tiny-synth",
+                             .processAudio = synth_processAudio,
+                             .handleMidiNoteOn = synth_handleMidiNoteOn,
+                             .handleMidiNoteOff = synth_handleMidiNoteOff,
+                             .parameters = {},
+                             .parameterCount = 0,
+                         },
+                         {
+                             .id = "io.tinyclub.tiny-drive",
+                             .processAudio = drive_processAudio,
+                             .parameters = drive_parameters,
+                             .parameterCount = 3,
+                         }};
 
 char *P_GetParameterCurrentValueAsText(p_parameter *parameter, double value) {
   char *str = malloc(16);

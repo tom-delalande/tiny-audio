@@ -6,21 +6,37 @@
     lv2:project <http://example.org/> ;
     rdfs:label "Tiny Drive" ;
     lv2:port [
-        a lv2:AudioPort , lv2:InputPort ;
+        a lv2:ControlPort , lv2:InputPort ;
         lv2:index 0 ;
+        lv2:symbol "drive" ;
+        lv2:name "Drive" ;
+        lv2:default 1.0 ;
+        lv2:minimum 0.0 ;
+        lv2:maximum 2.0
+    ] , [
+        a lv2:ControlPort , lv2:InputPort ;
+        lv2:index 1 ;
+        lv2:symbol "mode" ;
+        lv2:name "Mode" ;
+        lv2:default 1.0 ;
+        lv2:minimum 0.0 ;
+        lv2:maximum 2.0
+    ] , [
+        a lv2:ControlPort , lv2:InputPort ;
+        lv2:index 2 ;
+        lv2:symbol "mix" ;
+        lv2:name "Mix" ;
+        lv2:default 1.0 ;
+        lv2:minimum 0.0 ;
+        lv2:maximum 2.0
+    ],  [ 
+        a lv2:AudioPort , lv2:InputPort ;
+        lv2:index 3 ;
         lv2:symbol "input" ;
         lv2:name "Input"
     ] , [
         a lv2:AudioPort , lv2:OutputPort ;
-        lv2:index 1 ;
+        lv2:index 4 ;
         lv2:symbol "output" ;
         lv2:name "Output"
-    ] , [
-        a lv2:ControlPort , lv2:InputPort ;
-        lv2:index 2 ;
-        lv2:symbol "gain" ;
-        lv2:name "Gain" ;
-        lv2:default 1.0 ;
-        lv2:minimum 0.0 ;
-        lv2:maximum 2.0
     ] .

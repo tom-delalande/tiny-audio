@@ -3,6 +3,6 @@
 
 <http://example.org/plugins/mygain>
     a lv2:Plugin ;
-    lv2:binary <gain.so> ;
+    lv2:binary <plugin.so> ;
     rdfs:seeAlso <gain.ttl> .
 
