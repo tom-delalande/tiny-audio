@@ -28,40 +28,18 @@ typedef struct {
 typedef struct p_plugin p_plugin;
 struct p_plugin {
   char *id;
-  p_audio (*processAudio)(p_plugin *plugin, float leftIn, float rightIn);
-  void (*handleMidiNoteOn)(p_plugin *plugin, int16_t key);
-  void (*handleMidiNoteOff)(p_plugin *plugin, int16_t key);
+  p_audio (*processAudio)(p_plugin *plugin, float leftIn, float rightIn,
+                          float **parameterValues);
   p_parameter *parameters;
   float **parameterValues;
   uint32_t parameterCount;
 };
 
-static int16_t MIDI_NOTE = 0;
-
-p_audio synth_processAudio(p_plugin *plugin, float leftIn, float rightIn) {
-  double frequency = 440.0 * pow(2.0, (MIDI_NOTE - 69) / 12.0);
-  bool noteOn = MIDI_NOTE != 0;
-  static double phase = 0.0;
-  double sampleRate = 44100.0;
-
-  float sample = 0.0f;
-  if (noteOn) {
-    sample = (float)((2.0 * (phase)-1.0)); // saw wave [-1,1]
-    sample = sinf(2.0f * M_PI * phase);    // sine
-    phase += frequency / sampleRate;
-    if (phase >= 1.0)
-      phase -= 1.0;
-  }
-  return (p_audio){.left = sample, .right = sample};
-}
-
-void synth_handleMidiNoteOn(p_plugin *plugin, int16_t key) { MIDI_NOTE = key; }
-void synth_handleMidiNoteOff(p_plugin *plugin, int16_t key) { MIDI_NOTE = 0; }
-
-p_audio drive_processAudio(p_plugin *plugin, float leftIn, float rightIn) {
-  float drive = *(plugin->parameterValues[0]);
-  int mode = (int)*(plugin->parameterValues[1]);
-  float mix = *(plugin->parameterValues[2]);
+p_audio drive_processAudio(p_plugin *plugin, float leftIn, float rightIn,
+                           float **parameterValues) {
+  float drive = *(parameterValues[0]);
+  float mix = *(parameterValues[1]);
+  int mode = (int)*(parameterValues[2]);
 
   float out_l, out_r;
   out_l = 0;
@@ -125,20 +103,12 @@ p_parameter drive_parameters[] = {
     },
 };
 
-p_plugin p_plugins[2] = {{
-                             .id = "io.tinyclub.tiny-synth",
-                             .processAudio = synth_processAudio,
-                             .handleMidiNoteOn = synth_handleMidiNoteOn,
-                             .handleMidiNoteOff = synth_handleMidiNoteOff,
-                             .parameters = {},
-                             .parameterCount = 0,
-                         },
-                         {
-                             .id = "io.tinyclub.tiny-drive",
-                             .processAudio = drive_processAudio,
-                             .parameters = drive_parameters,
-                             .parameterCount = 3,
-                         }};
+p_plugin p_plugins[1] = {{
+    .id = "io.tinyclub.tiny-drive",
+    .processAudio = drive_processAudio,
+    .parameters = drive_parameters,
+    .parameterCount = 3,
+}};
 
 char *P_GetParameterCurrentValueAsText(p_parameter *parameter, double value) {
   char *str = malloc(16);
