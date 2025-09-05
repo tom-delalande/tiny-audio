@@ -1,5 +1,6 @@
-#include "../plugin/p_plugins.c"
+#include "../plugin/p_plugins.h"
 #include "lv2/core/lv2.h"
+#include <dlfcn.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,9 +9,14 @@
 #define PASSTHROUGH_URI "http://example.org/passthrough"
 
 const int8_t num_plugins = 1;
-const char *i_plugins[] = {"http://example.org/passthrough"};
+const char *i_plugins[] = {PASSTHROUGH_URI};
+
+const char *plugin_lib = "/Users/thomas-delalande/dev/portfolio/tiny-audio/"
+                         "build/lv2/tinyaudio.lv2/plugins.dylib";
+void *plugin_lib_handle;
 
 typedef struct {
+  const char *uri;
   const float *in_l;
   const float *in_r;
   float *out_l;
@@ -25,13 +31,22 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor, double rate,
                               const char *bundle_path,
                               const LV2_Feature *const *features) {
 
+  printf("Tiny Audio Version: F\n");
+
   Passthrough *passthrough = calloc(1, sizeof(Passthrough));
+  passthrough->uri = descriptor->URI;
+  return (LV2_Handle)passthrough;
+}
+
+static void activate(LV2_Handle instance) {
+  Passthrough *self = (Passthrough *)instance;
+  plugin_lib_handle = dlopen(plugin_lib, RTLD_NOW);
+  p_plugin *plugins = (p_plugin *)dlsym(plugin_lib_handle, "p_plugins");
   for (int i = 0; i < num_plugins; ++i) {
-    if (strcmp(i_plugins[i], descriptor->URI) == 0) {
-      passthrough->plugin = &p_plugins[i];
+    if (strcmp(i_plugins[i], self->uri) == 0) {
+      self->plugin = &plugins[i];
     }
   }
-  return (LV2_Handle)passthrough;
 }
 
 /* Connect ports */
@@ -59,8 +74,10 @@ static void connect_port(LV2_Handle instance, uint32_t port, void *data) {
 /* Run processing */
 static void run(LV2_Handle instance, uint32_t n_samples) {
   Passthrough *self = (Passthrough *)instance;
+
   if (!self->in_l || !self->in_r || !self->out_l || !self->out_r)
     return;
+
   for (uint32_t i = 0; i < n_samples; ++i) {
     p_audio output = self->plugin->processAudio(
         self->plugin, self->in_l[i], self->in_r[i], self->parameters);
@@ -68,7 +85,11 @@ static void run(LV2_Handle instance, uint32_t n_samples) {
     self->out_r[i] = output.right;
   }
 }
-
+static void deactivate(LV2_Handle instance) {
+  printf("Cleanup...\n");
+  if (plugin_lib_handle)
+    dlclose(plugin_lib_handle);
+}
 /* Cleanup */
 static void cleanup(LV2_Handle instance) { free(instance); }
 
@@ -77,9 +98,9 @@ static const LV2_Descriptor descriptor = {
     PASSTHROUGH_URI,
     instantiate,
     connect_port,
-    NULL, // activate
+    activate, // activate
     run,
-    NULL, // deactivate
+    deactivate, // deactivate
     cleanup,
     NULL // extension_data
 };
