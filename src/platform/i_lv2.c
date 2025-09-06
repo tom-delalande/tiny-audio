@@ -11,9 +11,10 @@
 const int8_t num_plugins = 1;
 const char *i_plugins[] = {PASSTHROUGH_URI};
 
-const char *plugin_lib = "/Users/thomas-delalande/dev/portfolio/tiny-audio/"
-                         "build/lv2/tinyaudio.lv2/plugins.dylib";
+const char *plugin_lib = "./plugins.dylib";
 void *plugin_lib_handle;
+const char *plugin_bundle_path;
+char *path;
 
 typedef struct {
   const char *uri;
@@ -31,8 +32,7 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor, double rate,
                               const char *bundle_path,
                               const LV2_Feature *const *features) {
 
-  printf("Tiny Audio Version: F\n");
-
+  plugin_bundle_path = bundle_path;
   Passthrough *passthrough = calloc(1, sizeof(Passthrough));
   passthrough->uri = descriptor->URI;
   return (LV2_Handle)passthrough;
@@ -40,7 +40,10 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor, double rate,
 
 static void activate(LV2_Handle instance) {
   Passthrough *self = (Passthrough *)instance;
-  plugin_lib_handle = dlopen(plugin_lib, RTLD_NOW);
+  char path[1024];
+  snprintf(path, sizeof(path), "%s/%s", plugin_bundle_path, plugin_lib);
+  plugin_lib_handle = dlopen(path, RTLD_NOW);
+
   p_plugin *plugins = (p_plugin *)dlsym(plugin_lib_handle, "p_plugins");
   for (int i = 0; i < num_plugins; ++i) {
     if (strcmp(i_plugins[i], self->uri) == 0) {
@@ -86,7 +89,6 @@ static void run(LV2_Handle instance, uint32_t n_samples) {
   }
 }
 static void deactivate(LV2_Handle instance) {
-  printf("Cleanup...\n");
   if (plugin_lib_handle)
     dlclose(plugin_lib_handle);
 }

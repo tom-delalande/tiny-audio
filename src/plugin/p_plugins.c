@@ -12,8 +12,6 @@ p_audio drive_processAudio(p_plugin *plugin, float leftIn, float rightIn,
   float mix = *(parameterValues[1]);
   int mode = (int)*(parameterValues[2]);
 
-  drive = 6.0f;
-
   float out_l, out_r;
   out_l = 0;
   out_r = 0;
