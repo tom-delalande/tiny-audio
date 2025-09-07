@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 # The plugin directory name CANNOT contain any dashes!!!
 mkdir -p build/lv2/tinyaudio.lv2/
 

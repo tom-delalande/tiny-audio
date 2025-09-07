@@ -5,41 +5,30 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+float running_average;
+// DSP Notes
+// Doubling the amplitude is a 6db increase
+// Halving it is a 6db decrease
+
 p_audio drive_processAudio(p_plugin *plugin, float leftIn, float rightIn,
                            float **parameterValues) {
   printf("Drive - Process Audio\n");
-  float drive = *(parameterValues[0]);
-  float mix = *(parameterValues[1]);
-  int mode = (int)*(parameterValues[2]);
-
   float out_l, out_r;
   out_l = 0;
   out_r = 0;
+  float cutoff = 0.0f;
 
-  float tl = leftIn * (1.0 + drive);
-  float tr = rightIn * (1.0 + drive);
+  float r = ((float)rand() / RAND_MAX) * 0.02;
 
-  // Obviously this is inefficient but
-  switch (mode) {
-  case 0: {
-    tl = (tl > 1 ? 1 : tl < -1 ? -1 : tl);
-    tr = (tr > 1 ? 1 : tr < -1 ? -1 : tr);
-  } break;
-  case 1: {
-    tl = (tl > 1 ? 1 : tl < -1 ? -1 : tl);
-    tl = 1.5 * tl - 0.5 * tl * tl * tl;
+  float drive = 1.2f;
+  float value = drive + r;
 
-    tr = (tr > 1 ? 1 : tr < -1 ? -1 : tr);
-    tr = 1.5 * tr - 0.5 * tr * tr * tr;
-  } break;
-  case 2: {
-    tl = sin(2.0 * M_PI * tl);
-    tr = sin(2.0 * M_PI * tr);
-  } break;
+  if (leftIn > cutoff) {
+    out_l = leftIn * value;
   }
-
-  out_l = mix * tl + (1.0 - mix) * leftIn;
-  out_r = mix * tr + (1.0 - mix) * rightIn;
+  if (rightIn > cutoff) {
+    out_r = rightIn * value;
+  }
   return (p_audio){
       out_l,
       out_r,
