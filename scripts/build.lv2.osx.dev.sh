@@ -1,5 +1,4 @@
 #!/bin/bash
-
 set -e
 
 # The plugin directory name CANNOT contain any dashes!!!
